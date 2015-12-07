@@ -3,11 +3,8 @@ package com.mannetroll.wordnet;
 // to download RDF dumps of WordNet 3.0:
 // git clone git://eculture.cs.vu.nl/home/git/public/vocs/wordnet.git
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.zip.GZIPInputStream;
-
+import com.tinkerpop.blueprints.impls.neo4j.Neo4jGraph;
+import com.tinkerpop.blueprints.oupls.sail.GraphSail;
 import org.openrdf.model.Statement;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFHandler;
@@ -18,8 +15,10 @@ import org.openrdf.sail.Sail;
 import org.openrdf.sail.SailConnection;
 import org.openrdf.sail.SailException;
 
-import com.tinkerpop.blueprints.impls.neo4j.Neo4jGraph;
-import com.tinkerpop.blueprints.oupls.sail.GraphSail;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.zip.GZIPInputStream;
 
 /**
  * @author Joshua Shinavier (http://fortytwo.net)
@@ -54,15 +53,15 @@ public class TurtleLoader {
                     System.out.println("loading file: " + f);
                     String n = f.getName();
                     InputStream is;
-                    if (n.endsWith(".ttl.gz")) {
+                    if (n.endsWith(".nt.gz")) {
                         is = new GZIPInputStream(new FileInputStream(f));
-                    } else if (n.endsWith(".ttl")) {
+                    } else if (n.endsWith(".nt")) {
                         is = new FileInputStream(f);
                     } else {
                         continue;
                     }
 
-                    RDFParser p = Rio.createParser(RDFFormat.TURTLE);
+                    RDFParser p = Rio.createParser(RDFFormat.NTRIPLES);
                     p.setStopAtFirstError(false);
                     p.setRDFHandler(new SailConnectionAdder(c));
 
@@ -99,6 +98,13 @@ public class TurtleLoader {
         }
 
         public void startRDF() throws RDFHandlerException {
+            try
+            {
+                c.begin();
+            } catch (SailException e)
+            {
+                throw new RDFHandlerException(e);
+            }
         }
 
         public void endRDF() throws RDFHandlerException {
@@ -121,6 +127,9 @@ public class TurtleLoader {
 
         public void handleStatement(Statement statement) throws RDFHandlerException {
             try {
+                if (!c.isActive()) {
+                    c.begin();
+                }
                 c.addStatement(statement.getSubject(), statement.getPredicate(), statement.getObject(), statement
                         .getContext());
             } catch (SailException e) {
